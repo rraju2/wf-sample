@@ -1,0 +1,30 @@
+{
+    "cro": [
+        {
+            "id": "cust1",
+            "label": "Customer 1"
+        },
+        {
+            "id": "cust2",
+            "label": "Customer 2"
+        },
+        {
+            "id": "cust3",
+            "label": "Customer 3"
+        }
+    ],
+    "sponsor": [
+        {
+            "id": "cust4",
+            "label": "Customer 4"
+        },
+        {
+            "id": "cust5",
+            "label": "Customer 5"
+        },
+        {
+            "id": "cust6",
+            "label": "Customer 6"
+        }
+    ]
+}

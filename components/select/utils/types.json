@@ -1,0 +1,12 @@
+{
+    "types": [
+        {
+            "id": "cro",
+            "label": "CRO"
+        },
+        {
+            "id": "sponsor",
+            "label": "Sponsor"
+        }
+    ]
+}

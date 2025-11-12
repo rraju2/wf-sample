@@ -1,0 +1,18 @@
+{
+    "typeConfig": {
+        "cro": {
+            "multiSelect": true,
+            "required": true,
+            "maxSelect": 3
+        },
+        "sponsor": {
+            "multiSelect": false,
+            "required": true
+        },
+        "device": {
+            "multiSelect": true,
+            "required": false,
+            "maxSelect": 5
+        }
+    }
+}

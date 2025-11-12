@@ -1,0 +1,10 @@
+{
+    "typeConfig": {
+        "cro": {
+            "multiSelect": true
+        },
+        "sponsor": {
+            "multiSelect": false
+        }
+    }
+}
