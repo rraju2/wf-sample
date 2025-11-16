@@ -1,0 +1,16 @@
+@import "tailwindcss/preflight";
+@tailwind utilities;
+
+/* Custom Scrollbar for Canvas / Panels */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f4f8;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #1e3a8a;
+  border-radius: 4px;
+}

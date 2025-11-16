@@ -1,7 +1,8 @@
 import * as React from "react";
 import { Check, ChevronsUpDown, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 import {
     Command,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/popover";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Control } from "react-hook-form";
+import { cn } from "@/lib/utils"; // Assuming cn utility is available
 
 export type OptionType = {
     label: string;
@@ -46,44 +48,42 @@ export function MultiSelect({
             name={name}
             render={({ field }) => (
                 <FormItem>
-                    <FormLabel>{label}</FormLabel>
                     <Popover>
                         <PopoverTrigger asChild>
-                            <FormControl>
-                                <div className="relative">
-                                    <div className="flex flex-wrap gap-1 rounded-md border border-input bg-background p-2 min-h-[38px] items-center">
-                                        {field.value?.length > 0 ? (
-                                            field.value.map((value: string) => (
-                                                <Badge
-                                                    key={value}
-                                                    variant="secondary"
-                                                    className="mr-1"
+                            <Button
+                                variant="outline" role="combobox"
+                                className="w-full justify-between min-h-[38px] h-auto"
+                            >
+                                <div className="flex-1 flex flex-wrap gap-1">
+                                    {field.value?.length > 0 ?
+                                        (field.value.map((value: string) => (
+                                            <Badge key={value}
+                                                variant="secondary"
+                                                className="mr-1"
+                                            >
+                                                {options.find((o) => o.value === value)?.label}
+                                                <button
+                                                    className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Enter") {
+                                                            field.onChange(field.value.filter((v: string) => v !== value));
+                                                        }
+                                                    }}
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                    }}
+                                                    onClick={() => field.onChange(field.value.filter((v: string) => v !== value))}
                                                 >
-                                                    {options.find((o) => o.value === value)?.label}
-                                                    <button
-                                                        className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === "Enter") {
-                                                                field.onChange(field.value.filter((v: string) => v !== value));
-                                                            }
-                                                        }}
-                                                        onMouseDown={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                        }}
-                                                        onClick={() => field.onChange(field.value.filter((v: string) => v !== value))}
-                                                    >
-                                                        <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                                                    </button>
-                                                </Badge>
-                                            ))
-                                        ) : (
-                                            <span className="text-muted-foreground text-sm mx-2">{placeholder}</span>
-                                        )}
-                                    </div>
-                                    <ChevronsUpDown className="h-4 w-4 absolute top-1/2 right-2 -translate-y-1/2 opacity-50" />
+                                                    <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                </button>
+                                            </Badge>
+                                        ))) :
+                                        (<span className="text-muted-foreground text-sm mx-2">{placeholder}</span>)
+                                    }
                                 </div>
-                            </FormControl>
+                                <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                             <Command>

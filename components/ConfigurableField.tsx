@@ -1,5 +1,5 @@
 "use client";
-
+import React, { useState, useEffect, useMemo } from 'react';
 import { Control } from "react-hook-form";
 import {
     FormField,
@@ -10,6 +10,7 @@ import {
     FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
     Select,
     SelectContent,
@@ -30,6 +31,7 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { MultiSelect } from "./MultiSelect";
+import { AdvancedSelect } from "./AdvancedSelect";
 
 export type FieldOption = {
     value: string;
@@ -53,6 +55,11 @@ interface ConfigurableFieldProps {
     description?: string;
     options?: FieldOption[];
     isMulti?: boolean;
+    required?: boolean;
+    dataSourceUrl?: string;
+    isSearchable?: boolean;
+    allowAddNew?: boolean;
+    postUrl?: string;
     min?: number;
     max?: number;
 }
@@ -66,6 +73,11 @@ export function ConfigurableField({
     description,
     options = [],
     isMulti = false,
+    required,
+    dataSourceUrl,
+    isSearchable,
+    allowAddNew,
+    postUrl,
     min,
     max,
 }: ConfigurableFieldProps) {
@@ -73,6 +85,10 @@ export function ConfigurableField({
         <FormField
             control={control}
             name={name}
+            rules={{
+                required: required && `${label} is required.`,
+                min, max
+            }}
             render={({ field }) => (
                 <FormItem>
                     <FormLabel>{label}</FormLabel>
@@ -91,27 +107,30 @@ export function ConfigurableField({
                                     onChange={(e) => field.onChange(e.target.value === '' ? null : +e.target.value)}
                                 />
                             )}
-                            {fieldType === "select" && isMulti && (
-                                <MultiSelect control={control} name={name} label="" options={options} placeholder={placeholder} />
-                            )}
-
-                            {fieldType === "select" && !isMulti && (
-                                <Select
-                                    onValueChange={field.onChange}
-                                    defaultValue={field.value}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={placeholder} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {options.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
+                            {(
+                                fieldType === "select" ||
+                                fieldType === 'countries' ||
+                                fieldType === 'languages' ||
+                                fieldType === 'cro' ||
+                                fieldType === 'phases' ||
+                                fieldType === 'customers' ||
+                                fieldType === 'devices'
+                            ) && (
+                                    <AdvancedSelect
+                                        name={name}
+                                        label={label}
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        placeholder={placeholder}
+                                        staticOptions={options}
+                                        dataSourceUrl={dataSourceUrl}
+                                        isSearchable={isSearchable}
+                                        allowAddNew={allowAddNew}
+                                        postUrl={postUrl}
+                                        isMulti={isMulti}
+                                        required={required}
+                                    />
+                                )}
                             {fieldType === "checkbox" && (
                                 <div className="flex items-center space-x-2">
                                     <Checkbox

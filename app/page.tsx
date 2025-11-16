@@ -1,167 +1,223 @@
 "use client";
 
-import { ConfigurableField } from "@/components/ConfigurableField";
 import { useForm } from "react-hook-form";
+import { useTranslation } from "react-i18next";
+import { useState, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
-import { ReusableSelect } from "@/components/ReusableSelect";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { ConfigurableField } from "@/components/ConfigurableField";
+import { PropertiesPanel } from "./PropertiesPanel";
+import { LiveJsonPreview } from "./LiveJsonPreview";
 
-const singleSelectSchema = z.object({
-  protocolName: z.string().min(1, "Protocol name is required."),
-  trialType: z.string({
-    message: "Please select a study type.",
-  }),
-  customer: z.string().optional(),
-  countries: z.string().min(1, "You have to select at least one country."),
-  terms: z.boolean().refine((val) => val === true, { message: "You must accept the terms and conditions." }),
-  languages: z.array(z.string()).optional(),
-});
-
-const multiSelectSchema = singleSelectSchema.extend({
-  countries: z.array(z.string()).refine((value) => value.some((item) => item), {
-    message: "You have to select at least one country.",
-  }),
-});
-
-const trialTypes = [
-  { value: "cro", label: "CRO" },
-  { value: "sponsor", label: "Sponsor" },
-];
-
-const customers = [
-  { value: "customer-a", label: "Customer A" },
-  { value: "customer-b", label: "Customer B" },
-  { value: "customer-c", label: "Customer C" },
-];
-
-const countries = [
-  { value: "usa", label: "United States" },
-  { value: "germany", label: "Germany" },
-  { value: "uk", label: "United Kingdom" },
-  { value: "japan", label: "Japan" },
-  { value: "australia", label: "Australia" },
-];
-
-const languages = [
-  { value: "en", label: "English" },
-  { value: "de", label: "German" },
-  { value: "ja", label: "Japanese" },
-  { value: "es", label: "Spanish" },
-  { value: "fr", label: "French" },
-];
+const formSchema = z.object({});
 
 export default function Home() {
-  const [isMulti, setIsMulti] = useState(true);
-  const formSchema = isMulti ? multiSelectSchema : singleSelectSchema;
+  const [droppedItems, setDroppedItems] = useState([]);
+  const [layout, setLayout] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
+  const { t } = useTranslation();
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      protocolName: "",
-      countries: isMulti ? ([] as string[]) : ("" as string),
-      languages: [] as string[],
-      terms: false,
-    } as unknown as Partial<z.infer<typeof formSchema>>,
-  });
+  // Dynamically build schema based on dropped items
+  const dynamicSchema = buildDynamicSchema(droppedItems);
 
-  function onSubmit(data: z.infer<typeof formSchema>) {
-    console.log("Form Submitted:", data);
-    alert(`Form submitted with ${isMulti ? 'multi' : 'single'}-select for countries! Check the console for the data.`);
-  }
+  const form = useForm({ resolver: zodResolver(dynamicSchema) });
+  const { watch, formState: { errors } } = form;
 
-  const { formState } = form;
-  const formData = form.watch();
+  const onDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const componentType = event.dataTransfer.getData('application/form-builder-component');
 
-  const requiredFields = Object.fromEntries(
-    Object.entries(formSchema.shape).map(([key, schema]) => [
-      key,
-      !schema.isOptional(),
-    ])
-  );
-  const liveJson = {
-    values: formData,
-    errors: formState.errors,
-    required: requiredFields,
+    // Define default configurations for each component type
+    const componentConfigs: Record<string, any> = {
+      text: { fieldType: 'text', label: t('textInput') },
+      select: { fieldType: 'select', label: t('selectDropdown'), dataSourceUrl: 'https://restcountries.com/v3.1/all?fields=name,cca2', isSearchable: true, allowAddNew: true },
+      countries: { fieldType: 'select', label: t('countriesDropdown'), dataSourceUrl: 'https://restcountries.com/v3.1/all?fields=name,cca2', isSearchable: true, allowAddNew: false },
+      languages: { fieldType: 'select', label: t('languagesDropdown'), dataSourceUrl: 'https://restcountries.com/v3.1/all?fields=name,cca2', isSearchable: true, allowAddNew: true },
+      cro: { fieldType: 'select', label: t('croDropdown'), dataSourceUrl: 'https://restcountries.com/v3.1/all?fields=name,cca2', isSearchable: true, allowAddNew: true },
+      phases: { fieldType: 'select', label: t('phasesDropdown'), dataSourceUrl: 'https://restcountries.com/v3.1/all?fields=name,cca2', isSearchable: true, allowAddNew: false },
+      customers: { fieldType: 'select', label: t('customersDropdown'), dataSourceUrl: 'https://restcountries.com/v3.1/all?fields=name,cca2', isSearchable: true, allowAddNew: true },
+      devices: { fieldType: 'select', label: t('devicesDropdown'), dataSourceUrl: 'https://restcountries.com/v3.1/all?fields=name,cca2', isSearchable: true, allowAddNew: true },
+      checkbox: { fieldType: 'checkbox', label: t('checkbox') },
+      label: { fieldType: 'label', label: t('labelComponent'), text: 'Static Label' },
+    };
+
+    const config = componentConfigs[componentType];
+
+    if (componentType) {
+      setDroppedItems(items => [...items, {
+        id: `${componentType}-${Date.now()}`,
+        type: componentType,
+        label: config.label || `${componentType.charAt(0).toUpperCase() + componentType.slice(1)} Field`,
+        name: `${componentType}${droppedItems.length + 1}`,
+        required: false,
+        placeholder: t('placeholder'),
+        // Spread select-specific properties
+        dataSourceUrl: config.dataSourceUrl,
+        isSearchable: config.isSearchable,
+        allowAddNew: config.allowAddNew,
+        postUrl: config.postUrl,
+        isMulti: config.isMulti,
+        min: undefined,
+        colSpan: 1,
+      }]);
+    }
+  };
+
+  const onDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleSubmit = (values: any) => {
+    console.log(values);
+  };
+
+  const handlePropertyChange = (id: string, property: string, value: any) => {
+    console.log(`Changing property ${property} to ${value} for component ${id}`);
+    setDroppedItems(items =>
+      items.map(item =>
+        item.id === id ? { ...item, [property]: value } : item
+      )
+    );
+  };
+
+  const getGridClass = () => {
+    switch (layout) {
+      case 'desktop':
+        return 'grid-cols-3';
+      case 'tablet':
+        return 'grid-cols-2';
+      case 'mobile':
+        return 'grid-cols-1';
+    }
+  };
+
+  const layoutOptions = [
+    { value: 'desktop', label: t('desktop') },
+    { value: 'tablet', label: t('tablet') },
+    { value: 'mobile', label: t('mobile') },
+  ];
+
+  const selectedComponent = droppedItems.find(item => item.id === selectedComponentId) || null;
+
+  const liveJsonData = {
+    layout: layout,
+    fields: droppedItems.map(item => ({
+      id: item.id,
+      type: item.type,
+      name: item.name,
+      label: item.label,
+      placeholder: item.placeholder,
+      validation: {
+        required: item.required,
+        min: item.min,
+        max: item.max,
+      },
+    })),
+    values: watch(),
+    errors: errors,
   };
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen bg-background p-4 sm:p-8">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-6xl space-y-8">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold">Create new Protocol</h1>
-            <p className="text-muted-foreground">Please fill out the details for the clinical trial study</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
-            <Card>
-              <CardHeader>
-                <CardTitle>Create New Protocol</CardTitle>
-                <CardDescription>Select the study type and customer for this study</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <ReusableSelect control={form.control} name="trialType" label="Trial Type" placeholder="Select a trial type..." options={trialTypes} />
-                <ReusableSelect control={form.control} name="customer" label="Customer (Optional)" placeholder="Select a customer..." options={customers} />
-              </CardContent>
-              <CardFooter className="flex-col items-start gap-4">
-                {/* Example of a configurable checkbox */}
-                <ConfigurableField control={form.control} name="protocolName" label="Protocol Name" fieldType="text" description="Protocol Name" />
-                <ConfigurableField control={form.control} name="terms" label="" fieldType="checkbox" description="I accept the terms and conditions" />
-              </CardFooter>
-
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Regional Settings</CardTitle>
-                <CardDescription>Specify the country and languages for this trial study.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center space-x-2">
-                  <Switch id="multi-select-switch" checked={isMulti} onCheckedChange={() => setIsMulti(!isMulti)} />
-                  <Label htmlFor="multi-select-switch">Enable Multi-select for Countries</Label>
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] h-full gap-4">
+      <div>
+        <div className="mb-4 flex items-center gap-4">
+          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{t('layout')}</label>
+          <select
+            value={layout}
+            onChange={(e) => setLayout(e.target.value as 'desktop' | 'tablet' | 'mobile')}
+            className="border p-2 rounded-md bg-background"
+          >
+            {layoutOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="w-full max-w-6xl space-y-8">
+            <div
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              className={`min-h-[600px] p-4 bg-muted/20 border-2 border-dashed border-muted-foreground/40 rounded-lg grid ${getGridClass()} gap-4 auto-rows-min overflow-hidden`}
+            >
+              {droppedItems.length === 0 ? (
+                <div className="col-span-full row-span-full flex items-center justify-center text-muted-foreground">
+                  <p>{t('dropZonePlaceholder')}</p>
                 </div>
-                <ConfigurableField
-                  control={form.control}
-                  name="countries"
-                  label="Countries"
-                  fieldType="select"
-                  placeholder="Select countries..."
-                  options={countries}
-                  isMulti={isMulti}
-                />
-                <ConfigurableField control={form.control} name="languages" label="Languages (Optional)" fieldType="select" isMulti={true} options={languages} placeholder="Select languages..." />
-              </CardContent>
-            </Card>
-            <Card className="md:col-span-2 lg:col-span-1">
-              <CardHeader>
-                <CardTitle>Live Form Data</CardTitle>
-                <CardDescription>As you fill the form, the data will appear here.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <pre className="p-4 bg-secondary rounded-md overflow-x-auto">
-                  <code>{JSON.stringify(liveJson, null, 2)}</code>
-                </pre>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Button type="submit" className="w-full">Submit</Button>
-        </form>
-      </Form>
-    </main>
+              ) : (
+                droppedItems?.map((item, index) => (
+                  <div key={item.id} onClick={() => setSelectedComponentId(item.id)} className={`col-span-${item.colSpan} p-2 bg-background rounded-md shadow-sm border relative group cursor-pointer ${selectedComponentId === item.id ? 'ring-2 ring-primary' : ''}`}>
+                    <ConfigurableField
+                      control={form.control}
+                      name={item.name}
+                      label={item.label}
+                      fieldType={item.type}
+                      required={item.required}
+                      min={item.min}
+                      max={item.max}
+                      placeholder={item.placeholder}
+                      // Pass select-specific props
+                      dataSourceUrl={item.dataSourceUrl}
+                      isSearchable={item.isSearchable}
+                      allowAddNew={item.allowAddNew}
+                      postUrl={item.postUrl}
+                      isMulti={item.isMulti}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
+            <Button type="submit" className="w-full">{t('submit')}</Button>
+          </form>
+        </Form>
+      </div>
+      <div className="flex flex-col divide-y">
+        <PropertiesPanel
+          selectedComponent={selectedComponent}
+          onPropertyChange={handlePropertyChange}
+        />
+        <LiveJsonPreview data={liveJsonData} />
+      </div>
+    </div>
   );
+}
+
+// Helper function to dynamically build the Zod schema
+function buildDynamicSchema(items: any[]) {
+  const schemaFields: { [key: string]: z.ZodTypeAny } = {};
+
+  items.forEach(item => {
+    let fieldSchema: z.ZodTypeAny;
+
+    const isSelect = ['select', 'countries', 'languages', 'cro', 'phases', 'customers', 'devices'].includes(item.type);
+
+    if (isSelect && item.isMulti) {
+      fieldSchema = z.array(z.string());
+    } else {
+      fieldSchema = z.string(); // Default to string for single select and other types
+    }
+
+    if (item.type === 'number') {
+      fieldSchema = z.number().nullable();
+      if (item.min !== undefined) fieldSchema = fieldSchema.min(item.min, `${item.label} must be at least ${item.min}`);
+      if (item.max !== undefined) fieldSchema = fieldSchema.max(item.max, `${item.label} must be at most ${item.max}`);
+    }
+
+    if (item.required) {
+      const requiredMessage = `${item.label} is required`;
+      fieldSchema = isSelect && item.isMulti
+        ? (fieldSchema as z.ZodArray<any>).min(item.min ?? 1, item.min ? `${item.label} requires at least ${item.min} selections` : requiredMessage)
+        : fieldSchema.refine(val => val !== null && val !== undefined && val !== '', requiredMessage);
+    }
+    if (isSelect && item.isMulti && item.max !== undefined) {
+      fieldSchema = (fieldSchema as z.ZodArray<any>).max(item.max, `${item.label} allows at most ${item.max} selections`);
+    }
+    schemaFields[item.name] = fieldSchema;
+  });
+  return z.object(schemaFields);
 }
